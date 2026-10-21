@@ -1,0 +1,38 @@
+name: Refresh official timetable
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: timetable-publication
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Test calendar matching and publication safeguards
+        run: python -m unittest discover -p 'test_*.py'
+      - name: Compile current official timetable
+        run: python refresh_feed.py
+      - name: Publish validated replacement
+        run: |
+          git add last-departures.json
+          if ! git diff --cached --quiet; then
+            git config user.name 'lenny1400'
+            git config user.email 'eliasjonas001@gmail.com'
+            git commit -m 'chore: refresh official timetable'
+            git push
+          fi
